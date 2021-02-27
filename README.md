@@ -268,4 +268,34 @@ This modal would check with the user if they were positive they wanted to delete
         xhttp.send();
     }
     
-Test
+If the delete call is successful, we would set the display of the removed comment to none. Then, we would add the class "commentDeleteMagic" to a delete message we had on the page. 
+
+    .commentDeleteMagic {
+        position: fixed;
+        top: 110px;
+        height: 50px;
+        display: block;
+        color: var(--light-color);
+        z-index: 10;
+        width: 100%;
+        max-width: 1140px;
+        text-align: center;
+        border-radius: 20px;
+        opacity: 0;
+        animation-name: commentFade;
+        animation-duration: 4s;
+    }
+
+With this class being added, a green dialog box would fade in to view, letting know the comment had been deleted. The message would last for 3 seconds in view, then fade away. This is tied back to our deleteComment function, as there is a callback at the end of the function to removeClass()
+
+    //A simple callback removing the class from our commentDeleteMessage div, causing us to delete something else and the message to appear again.
+    function removeClass() {
+        document.getElementById("commentDeleteMessage").style.display = "none";
+        document.getElementById("commentDeleteMessage").classList.remove("commentDeleteMagic");
+    }
+    
+This would remove the class that was previously added to the deletion confirmation message, meaning that if another entry is deleted, the message would display once more, as the animation would reactivate.
+
+**Conclusion**
+
+Overall, the project was a great experience. I became more familiar with Agile and Scrum, as I was part of a team that all worked together on different parts of the project. I gained valuable experience with ASP.NET MVC, as I created models, views, and a controller. I practiced with a little bit of front-end work, frequently utilizing bootstrap for my views. Finally, I practiced with AJAX, making XMLHttpRequests to asynchrously update databases and views.

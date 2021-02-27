@@ -1,6 +1,7 @@
 # Tech Academy C# Live Project Code Summary
 
-Introduction
+**Introduction**
+
 For the end of my C# course with the Tech Academy, I worked on a team to help develop and refine an MVC web application for a theatre troupe. We utilized Scrum methodology in Azure DevOps, which involved daily standups and code retrospectives.
 
 I started the project by familiarizing myself with the code, exploring links, testing what was working, and making note of what needed improvement. My first story on the project involved front-end maintenance, as I created a custom scroll bar to match the color theme of the application. Afterwards, I dove heavily into back-end MVC core principles.
@@ -117,6 +118,77 @@ The next step was displaying the likes, dislikes, and a bar displaying the like 
              <span id=@($"{"dislikeAmount"}{@item.CommentId.ToString()}")>@Html.DisplayFor(modelItem => item.Dislikes)</span></button>  ||
             <button class="commentButtons replyButton"><i class="fa fa-mail-reply"></i> Reply</button>
         </p>
+
+
+        
+The code above was in the foreach loop, meaning that the like buttons, the dislike buttons, and the like/dislike bars each had their own unique ID, making it easier to grab each item with Javascript. These unique IDs were based off of the CommentID in the database. Any functions called (typically by buttons pressed) would pass the CommentID as a paramter, making sure that one function could handle each database instance.
+
+The first function was Incrementer, which would increase the likes or dislikes of a Comment through AJAX.
+
+    //This function is called upon button click. The parameters are the ID of the respective item
+    //and a bool, where true represents likes and false represents dislikes. If called from a like button,
+    //the bool is true. If called from a dislike button, the bool is false.
+    
+    function Incrementer(incrementedID, boolValue) {
+        var xhttp = new XMLHttpRequest();
+        
+        //We change the URL from CommentsController.cs that we call depending if we are increasing likes or dislikes.
+        if (boolValue) {
+            var pathway = "/Comments/IncreaseLikes/" + incrementedID;
+        }
+        else {
+            var pathway = "/Comments/IncreaseDislikes/" + incrementedID;
+        }
+        
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                if (boolValue) {
+                
+                    //If called from the Like button, we increase the amount of likes for the item, then return 
+                    //the new amount of likes to the respective space.
+                    document.getElementById("likeAmount".concat(incrementedID)).innerHTML = this.responseText;
+                }
+                else {
+                
+                    //If called from the Dislike button, we increase the amount of dislikes for the item, then return 
+                    //the new amount of dislikes to the respective space.
+                    document.getElementById("dislikeAmount".concat(incrementedID)).innerHTML = this.responseText;
+                }
+                
+                //Once the database is updated, we'll perform a callback with the likeRatioBarsUpdate function to change the likeRatio bar.
+                likeRatioBarsUpdate(incrementedID);
+            }
+        };      
+        xhttp.open("POST", pathway, true);
+        xhttp.send();
+    }
+
+As seen above, this function would take in the CommentID and a boolean boolValue. If boolValue is true, a Comment's like was affected. If boolValue is false, a Comment's dislike was affected. This worked by changing the pathway called through our XMLHttpRequest, as I created two different methods in our Comment controller. 
+
+        //POST method for increasing a Comment's likes and returning the new value
+        [HttpPost]
+        public int IncreaseLikes(int id)
+        {
+            Comment comment = db.Comments.Find(id);
+            comment.Likes += 1;
+            db.SaveChanges();
+            return comment.Likes;
+        }
+
+        //POST method for increasing a Comment's dislikes and returning the new value
+        [HttpPost]
+        public int IncreaseDislikes(int id)
+        {
+            Comment comment = db.Comments.Find(id);
+            comment.Dislikes += 1;
+            db.SaveChanges();
+            return comment.Dislikes;
+        }
+
+If the server status and the ready state both respond positively, the like/dislike amount is increased in the database and the new value is returned to the view. This returned value is then displayed near the respective button, causing the likes or dislikes to increase without the page having to be refreshed. 
+
+At the end of the Incrementer function, a callback occurs to the likeRatioBarsUpdate() function, another AJAX function that dynamically updates a Bootstrap progress bar that shows a comparison of likes to dislikes.
+
         <div class="progress likeRatioBar">
             @*For each comment two progress bars are created: The first shows the like ratio, the second shows the dislike ratio. Both are in the same 'progress' class.
               We create a unique id for each like and dislike bar, which is based off of the item's ID. We also use inline styling to set the width of the bars, as 
@@ -127,44 +199,73 @@ The next step was displaying the likes, dislikes, and a bar displaying the like 
             <div class="progress-bar bg-info" id=@($"{"likeBar"}{@item.CommentId.ToString()}") role="progressbar" style="width: @string.Concat(Convert.ToString(item.LikeRatio()*100),"%")" aria-valuenow="@Convert.ToString(item.LikeRatio()*100)" aria-valuemin="0" aria-valuemax="100"></div>
             <div class="progress-bar bg-danger" id=@($"{"dislikeBar"}{@item.CommentId.ToString()}") role="progressbar" style="width: @string.Concat(Convert.ToString((1-item.LikeRatio())*100),"%")" aria-valuenow="@Convert.ToString((1-item.LikeRatio())*100)" aria-valuemin="0" aria-valuemax="100"></div>
         </div>
-        <p>
-            <button class="commentButtons deleteButton" data-toggle="modal" data-target=@($"{"#commentModal"}{item.CommentId.ToString()}")><i class="fa fa-trash"></i> Delete</button>
-        </p>
         
-The code above was in the foreach loop, meaning that the like buttons, the dislike buttons, and the like/dislike bars each had their own unique ID, making it easier to grab each item with Javascript. These unique IDs were based off of the CommentID in the database. Any functions called (typically by buttons pressed) would pass the CommentID as a paramter, making sure that one function could handle each database instance.
+This progress bar is filled by two factors: a likeRatio(), which is a value from 0-1, and 1-likeRatio(), which represents the opposite value. Together, these both values add up to 1. When each value is multiplied by 100 and given a % sign, they cover 100%, meaning the entire likeRatioBar is filled. These values are both updated through the likeRatioBarsUpdate() function.
 
-The first function was Incrementer, which would increase the likes or dislikes of a Comment through AJAX.
-
-    //This function is called upon button click. The parameters are the ID of the respective item
-    //and a bool, where true represents likes and false represents dislikes. If called from a like button,
-    //the bool is true. If called from a dislike button, the bool is false.
-    function Incrementer(incrementedID, boolValue) {
+    //This function is a callback that is completed once Incrementer() is finished, ensuring that LikeRatio() has been updated.
+    function likeRatioBarsUpdate(incrementedID) {
+        var pathway = "/Comments/LikeRatio/" + incrementedID;
         var xhttp = new XMLHttpRequest();
-        //We change the URL from CommentsController.cs that we call depending if we are increasing likes or dislikes.
-        if (boolValue) {
-            var pathway = "/Comments/IncreaseLikes/" + incrementedID;
-        }
-        else {
-            var pathway = "/Comments/IncreaseDislikes/" + incrementedID;
-        }
         xhttp.onreadystatechange = function () {
             if (this.readyState == 4 && this.status == 200) {
-                if (boolValue) {
-                    //If called from the Like button, we increase the amount of likes for the item, then return 
-                    //the new amount of likes to the respective space.
-                    document.getElementById("likeAmount".concat(incrementedID)).innerHTML = this.responseText;
-                }
-                else {
-                    //If called from the Dislike button, we increase the amount of dislikes for the item, then return 
-                    //the new amount of dislikes to the respective space.
-                    document.getElementById("dislikeAmount".concat(incrementedID)).innerHTML = this.responseText;
-                }
-                //Once the database is updated, we'll perform a callback with the likeRatioBarsUpdate function to change the likeRatio bar.
-                likeRatioBarsUpdate(incrementedID);
+                //Using the new LikeRatio(), we set the width of the like bar equal to the percentage form of the LikeRatio()'s returned value
+                //and the dislike bar equal to the inverse, ensuring that 100% is met.
+                document.getElementById("likeBar" + incrementedID).style.width = String(this.responseText * 100) + "%";
+                document.getElementById("dislikeBar" + incrementedID).style.width = String((1-this.responseText) * 100) + "%";
             }
-        };      
+        }
+
+      xhttp.open("GET", pathway, true);
+      xhttp.send();
+    }
+    
+This is another AJAX function (that is only called AFTER the respective likes/dislikes of a Comment are increased) that dynamically updates the like and dislike bars in the progress bar container. The function calls the likeRatio for the selected Comment and returns that value. This returned value is then used for setting the width of the likeBar, and 1 minues the returned value is used for setting the width of the dislikeBar. This results in the progress bar dynamically updating after each like and dislike while always filling up 100% of the container.
+
+**4. Utilizing a Bootstrap modal and AJAX for database entry deletion.**
+
+Finally, I impletmenedted a modal to be displayed any time a delete button is clicked.
+
+    <div class="modal fade" id=@($"{"commentModal"}{@item.CommentId.ToString()}") tabindex="-1" role="dialog" aria-labelledby="commentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content commentDeleteModal">
+                <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Comment Deletion</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+              <div class="modal-body">
+                  Are you sure you want to delete the comment below? This cannot be undone! 
+                  <br />
+                  <br />
+                  @item.Message
+              </div>
+              <div class="modal-footer">
+                  <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
+                  <button type="button" class="btn btn-danger" onclick="deleteComment(@item.CommentId)" data-dismiss="modal" data-target="#commentDeleteMessage">Yes, I'm sure</button>
+              </div>
+            </div>
+        </div>
+    </div>
+    
+This modal would check with the user if they were positive they wanted to delete the comment. If the user clicks elsewhere or clicked the no button, the modal would close. Othewrise, the modal would call a deleteComment function, also done through AJAX.
+
+    //This function will delete the relevant comment from the db, then hide all content associated with that comment.
+    function deleteComment(commentID) {
+        var pathway = "/Comments/DeleteWithoutRedirect/" + commentID;
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById("Comment" + commentID).style.display = "none";
+                document.getElementById("commentDeleteMessage").classList.add("commentDeleteMagic");
+                document.getElementById("commentDeleteMessage").style.display = "block";
+                //We set a timeout of 4 seconds on this callback so that the message can fade in, display for 3 seconds, then fade out
+                setTimeout("removeClass()", 4000);
+
+            }
+        }
         xhttp.open("POST", pathway, true);
         xhttp.send();
     }
-
-As seen above, this function would take in the CommentID and a boolean. 
+    
+Test
